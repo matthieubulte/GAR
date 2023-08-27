@@ -32,7 +32,7 @@ M = 250 # number of replicates
 B = 500 # number of bootstrap replicates
 
 phis = np.linspace(0, 1, 6)
-Ts = [1000, 1200]
+Ts = [1200]
 
 df = pd.DataFrame(columns=['T', 'phi', 'replicate_id', 'err_mu_hat', 'phi_hat', 'Dt', 'boot_mean_Dt', 'boot_sig_Dt'])
 
