@@ -31,8 +31,8 @@ def sim(N, theta, mu):
 M = 250 # number of replicates
 B = 500 # number of bootstrap replicates
 
-phis = np.linspace(0, 1, 6)
-Ts = [1200]
+phis = [0.4, 0.6, 0.8, 1.0]
+Ts = [500, 1000]
 
 df = pd.DataFrame(columns=['T', 'phi', 'replicate_id', 'err_mu_hat', 'phi_hat', 'Dt', 'boot_mean_Dt', 'boot_sig_Dt'])
 
@@ -69,6 +69,9 @@ run_id = np.random.randint(100000)
 for T in Ts:
     for phi in phis:
         print(f"Running T={T} phi={phi}")
+        if T == 1000 and phi == 0.4:
+            continue
+        
         for replicate_id in tqdm(range(M)):
             x = sim(T, phi, mean)
 
