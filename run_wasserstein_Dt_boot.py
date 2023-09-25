@@ -1,19 +1,13 @@
 import sys, os; sys.path.append(os.path.dirname(os.getcwd())) 
 
 import numpy as np
-import matplotlib.pyplot as plt
-from pyfrechet.metric_spaces import MetricData, RiemannianManifold, CorrFrobenius, MetricSpace
-from geomstats.geometry.hypersphere import Hypersphere
 import pandas as pd
-from pyfrechet.metric_spaces.correlation.nearcorr import nearcorr
 from tqdm import tqdm
-import seaborn as sns
-from joblib import Parallel, delayed
-from scipy.stats import norm
 from scipy import stats
 from pyfrechet.metric_spaces import *
 import pyfrechet.metric_spaces.wasserstein_1d as W1d
-
+from scipy.optimize import minimize
+import sim_config
 
 def gamma(x, theta, mu):
     # the rvs are represented as their quantile functions, so interpolation is euclidean
@@ -28,12 +22,6 @@ def sim(N, theta, mu):
         x[i, :] = z - np.sin(np.pi*k*z)/np.pi/abs(k)
     return x
 
-M = 250 # number of replicates
-B = 500 # number of bootstrap replicates
-
-phis = [0.4, 0.6, 0.8, 1.0]
-Ts = [500, 1000]
-
 df = pd.DataFrame(columns=['T', 'phi', 'replicate_id', 'err_mu_hat', 'phi_hat', 'Dt', 'boot_mean_Dt', 'boot_sig_Dt'])
 
 STD_NORMAL_Q = stats.norm.ppf(W1d.Wasserstein1D.GRID)
@@ -41,16 +29,11 @@ STD_NORMAL_Q[0] = 2*STD_NORMAL_Q[1] - STD_NORMAL_Q[2] # lexp to avoid infs
 STD_NORMAL_Q[-1] = 2*STD_NORMAL_Q[-2] - STD_NORMAL_Q[-3] # lexp to avoid infs
 mean = STD_NORMAL_Q
 
-def phi_hat(x, mu_hat):
+def phi_hat(x, mu_hat, tol=None):
     T = x.shape[0]
-    W = W1d.Wasserstein1D()
-
-    grid = np.linspace(0, 1, 40)
-
-    def calc(phi): return np.array([ W._d(x[j+1,:], gamma(x[j,:], phi, mu_hat))**2 for j in range(T-1) ]).mean()
-    errs = np.array([ calc(phi) for phi in grid ])
-    
-    return grid[np.argmin(errs)]
+    tol = tol or 1.0 / np.sqrt(T)
+    def L(phi): return np.array([ W._d(x[j+1,:], gamma(x[j,:], phi, mu_hat))**2 for j in range(T-1) ]).mean()
+    return minimize(L, np.random.rand(), method='Nelder-Mead', bounds=[(0,1)], options=dict(xatol=tol))['x'][0]
 
 def bootstrap_mu_sig(x, B):
     bootstrap = np.zeros(B)
@@ -66,13 +49,11 @@ def bootstrap_mu_sig(x, B):
 
 run_id = np.random.randint(100000)
 
-for T in Ts:
-    for phi in phis:
+for T in sim_config.Ts:
+    for phi in sim_config.phis:
         print(f"Running T={T} phi={phi}")
-        if T == 1000 and phi == 0.4:
-            continue
         
-        for replicate_id in tqdm(range(M)):
+        for replicate_id in tqdm(range(sim_config.M)):
             x = sim(T, phi, mean)
 
             W = W1d.Wasserstein1D()
@@ -82,8 +63,8 @@ for T in Ts:
 
             Dt = np.array([ W._d(x[j,:], x[j+1,:])**2 for j in range(T-1) ]).mean()
             
-            boot_mean_Dt, boot_sig_Dt = bootstrap_mu_sig(x, B)
+            boot_mean_Dt, boot_sig_Dt = bootstrap_mu_sig(x, sim_config.B)
 
             df.loc[len(df)] = [T, phi, replicate_id, W._d(mean, mu_hat)**2, phi_hat_, Dt, boot_mean_Dt, boot_sig_Dt]
 
-            df.to_csv(f'./{run_id}_results_wasserstein_full.csv')
+        df.to_csv(f'./results_wasserstein_boot_dt/{run_id}.csv')

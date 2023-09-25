@@ -1,0 +1,8 @@
+{
+	"num_repeats": 1000,
+    "sample_size":  [20, 40, 80, 160, 320, 640],
+	"phi": [0, 0.1, 0.2, 0.3, 0.4, 0.5, 1],
+	"sim_setup": ["r", "wasserstein"],
+	"boot_fraction":  0.7,
+	"num_boot": 500
+}
