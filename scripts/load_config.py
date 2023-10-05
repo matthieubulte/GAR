@@ -1,5 +1,6 @@
 import pandas as pd
 import argparse
+import numpy as np
 
 def load_config():
     import pathlib, os
@@ -22,8 +23,13 @@ def load_config():
     config_id = int(args.pop("config_id"))
     repeat_id = int(args.pop("repeat_id"))
 
-    out_name = os.path.join(os.path.dirname(setup_path), "results", f"{name}_{config_id}_{repeat_id}.csv")
+    out_name = os.path.join(os.path.dirname(setup_path), "results", f"{name}_{config_id}_{repeat_id}.pkl")
 
-    return out_name, pd.read_csv(setup_path).iloc[config_id]
+    sim_config = pd.read_csv(setup_path).iloc[config_id]
+    seed = np.random.randint(0, 2**32)
+    np.random.seed(seed)
+    sim_config['seed'] = seed
+
+    return out_name, sim_config
     
 

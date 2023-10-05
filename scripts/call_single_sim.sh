@@ -2,7 +2,8 @@
 set -o xtrace 
 set -e
 
-source $HOME/sim_config.sh
+cd $1
+source config.sh
 
 # Move to home directory
 cd $src_path
@@ -13,4 +14,4 @@ module load anaconda3/2023.03
 
 pip3 install --user --quiet -r requirements.txt
 
-PYTHONPATH="." python3 $main_path --repeat-id=$1 --path=$2 --config-id=$PBS_ARRAYID
+PYTHONPATH="." python3 $main_path --repeat-id=$2 --path=$3 --config-id=$PBS_ARRAYID
