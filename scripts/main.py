@@ -1,4 +1,5 @@
 from load_config import load_config
+from serial_dep_method import prop_test
 import numpy as np
 from scipy import stats
 from scipy.optimize import minimize
@@ -51,7 +52,14 @@ def iter_wasserstein(T, phi, num_boot, boot_fraction):
     booted_phi = bootstrap(x, phi_hat, num_boot, boot_fraction)
     booted_dt = bootstrap(x, Dt, num_boot, boot_fraction)
 
-    return W._d(mean, mu_hat)**2, phi_hat(x), Dt(x), booted_phi, booted_dt
+    D_mat = np.zeros((T,T))
+    for i in range(T):
+        for j in range(i+1,T):
+            D_mat[i,j] = W._d(x[i,:], x[j,:])
+            D_mat[j,i] = D_mat[i,j]
+    stat_CM, booted_CM, stat_KS, booted_KS = prop_test(D_mat, B=num_boot)
+
+    return W._d(mean, mu_hat)**2, phi_hat(x), Dt(x), stat_CM, stat_KS, booted_phi, booted_dt, booted_CM, booted_KS
 
 def iter_r(T, phi, num_boot, boot_fraction):
     def sim(T, phi, mu):
@@ -78,7 +86,15 @@ def iter_r(T, phi, num_boot, boot_fraction):
     booted_phi = bootstrap(x, phi_hat, num_boot, boot_fraction)
     booted_dt = bootstrap(x, Dt, num_boot, boot_fraction)
 
-    return (mean - mu_hat)**2, phi_hat(x), Dt(x), booted_phi, booted_dt
+    D_mat = np.zeros((T,T))
+    for i in range(T):
+        for j in range(i+1,T):
+            D_mat[i,j] = np.abs(x[i,0] - x[j,0])
+            D_mat[j,i] = D_mat[i,j]
+
+    stat_CM, booted_CM, stat_KS, booted_KS = prop_test(D_mat, B=num_boot)
+
+    return (mean - mu_hat)**2, phi_hat(x), Dt(x), stat_CM, stat_KS, booted_phi, booted_dt, booted_CM, booted_KS
 
 
 print('loading config')
@@ -96,12 +112,23 @@ out_fn = iter_r if setup == 'r' else iter_wasserstein
 
 print('saving result')
 
-err, phi_hat, Dt, booted_phi, booted_dt = out_fn(T, phi, num_boot, boot_fraction)
+err, phi_hat, Dt, stat_CM, stat_KS, booted_phi, booted_dt, booted_CM, booted_KS = out_fn(T, phi, num_boot, boot_fraction)
 
 alphas = np.linspace(0, 1, 50)
 Dt_q = np.quantile(booted_dt, alphas)
 phi_hat_q = np.quantile(booted_phi, alphas)
+CM_q = np.quantile(booted_CM, alphas)
+KS_q = np.quantile(booted_KS, alphas)
 
-sim_setting['result'] = dict(err=err, phi_hat=phi_hat, Dt=Dt, quantiles_Dt=Dt_q, quantiles_phi_hat=phi_hat_q)
+sim_setting['result'] = dict(
+    err=err, 
+    phi_hat=phi_hat, 
+    Dt=Dt, 
+    CM=stat_CM,
+    KS=stat_KS,
+    quantiles_Dt=Dt_q, 
+    quantiles_phi_hat=phi_hat_q,
+    quantiles_CM=CM_q,
+    quantiles_KS=KS_q)
 
 sim_setting.to_pickle(out_name)
