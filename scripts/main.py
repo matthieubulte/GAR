@@ -59,7 +59,7 @@ def bootstrap(x, stat, B, boot_fraction):
 #     return W._d(mean, mu_hat)**2, phi_hat(x), Dt(x), stat_CM, stat_KS, booted_phi, booted_dt, booted_CM, booted_KS
 
 
-def iter_logchol(T, phi, num_boot, boot_fraction):
+def iter_log_cholesky(T, phi, num_boot, boot_fraction):
     M = log_cholesky.LogCholesky(10)
 
     def sim(T, phi, mu):
@@ -185,7 +185,7 @@ if setup == 'r':
 elif setup == 'wasserstein':
     out_fn = iter_wasserstein
 elif setup == 'log_cholesky':
-    out_fn = log_cholesky
+    out_fn = iter_log_cholesky
 else:
     raise Exception(f"Unknown setup: {setup}")
 
