@@ -90,7 +90,14 @@ def iter_log_cholesky(T, phi, num_boot, boot_fraction):
     booted_phi = bootstrap(x, phi_hat, num_boot, boot_fraction)
     booted_dt = bootstrap(x, Dt, num_boot, boot_fraction)
 
-    return M._d(mean, mu_hat)**2, phi_hat(x), Dt(x), booted_phi, booted_dt
+    D_mat = np.zeros((T,T))
+    for i in range(T):
+        for j in range(i+1,T):
+            D_mat[i,j] = M._d(x[i,:], x[j,:])
+            D_mat[j,i] = D_mat[i,j]
+    stat_CM, booted_CM, stat_KS, booted_KS = prop_test(D_mat, B=num_boot)
+
+    return M._d(mean, mu_hat)**2, phi_hat(x), Dt(x), stat_CM, stat_KS, booted_phi, booted_dt, booted_CM, booted_KS
 
 def iter_wasserstein(T, phi, num_boot, boot_fraction):
     W = W1d.Wasserstein1D()
