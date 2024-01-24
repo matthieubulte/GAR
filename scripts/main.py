@@ -4,8 +4,8 @@ import numpy as np
 from scipy import stats
 from scipy.optimize import minimize
 import pyfrechet.metric_spaces.wasserstein_1d as W1d
-import pandas as pd
 from pyfrechet.metric_spaces import MetricData
+from pyfrechet.metric_spaces import log_cholesky
 
 # todo: change the order of the arguments
 def geodesic(x, theta, mu):
@@ -19,6 +19,78 @@ def bootstrap(x, stat, B, boot_fraction):
         bootstrap[b] = stat(permed)
     return bootstrap
 
+
+# def iter_bm(T, phi, num_boot, boot_fraction):
+#     def sim(T, phi, mu):
+#         x = np.zeros((T, mu.shape[0])) + mu
+#         for i in range(1,T):
+#             z = geodesic(x[i-1], phi, mu)
+#             eps = 0 # brownian motion
+#             x[i, :] = z + eps
+#         return x
+    
+#     def phi_hat(x, tol=None):
+#         mu_hat = x.mean(axis=0)
+#         T = x.shape[0]
+#         tol = tol or 1.0 / np.sqrt(T)
+#         def L(phi): return np.array([ np.linalg.norm(x[j+1,:] - geodesic(x[j,:], phi, mu_hat))**2 for j in range(T-1) ]).mean()
+#         return minimize(L, np.random.rand(), method='Nelder-Mead', bounds=[(0,1)], options=dict(xatol=tol))['x'][0]
+
+#     def Dt(x):
+#         h = 1/x.shape[0]
+#         return h*h*np.array([ np.linalg.norm(x[j,:] - x[j+1,:])**2  for j in range(x.shape[0]-1) ]).mean()
+
+#     domain = np.linspace(0, 1, 100)
+#     mean = np.sin(5 * np.pi * domain)
+
+#     x = sim(T, phi, mean)
+#     mu_hat = x.mean(axis=0)
+    
+#     booted_phi = bootstrap(x, phi_hat, num_boot, boot_fraction)
+#     booted_dt = bootstrap(x, Dt, num_boot, boot_fraction)
+
+#     D_mat = np.zeros((T,T))
+#     for i in range(T):
+#         for j in range(i+1,T):
+#             D_mat[i,j] = W._d(x[i,:], x[j,:])
+#             D_mat[j,i] = D_mat[i,j]
+#     stat_CM, booted_CM, stat_KS, booted_KS = prop_test(D_mat, B=num_boot)
+
+#     return W._d(mean, mu_hat)**2, phi_hat(x), Dt(x), stat_CM, stat_KS, booted_phi, booted_dt, booted_CM, booted_KS
+
+
+def iter_logchol(T, phi, num_boot, boot_fraction):
+    M = log_cholesky.LogCholesky(10)
+
+    def sim(T, phi, mu):
+        x = np.zeros((T, mu.shape[0])) + mu
+        for i in range(1,T):
+            x[i, :] = geodesic(x[i-1], phi, mu)
+            # log-normal noise on eigenvalues
+            x[i, :M.dim] *= (1 + np.random.normal(size=M.dim))
+            # normal noise on the lower-triangular elements
+            x[i, M.dim:] += np.random.normal(size=mu.shape[0] - M.dim)
+        return x
+    
+    def phi_hat(x, tol=None):
+        mu_hat = MetricData(M, x).frechet_mean()
+        T = x.shape[0]
+        tol = tol or 1.0 / np.sqrt(T)
+        def L(phi): return np.array([ M._d(x[j+1,:], geodesic(x[j,:], phi, mu_hat))**2 for j in range(T-1) ]).mean()
+        return minimize(L, np.random.rand(), method='Nelder-Mead', bounds=[(0,1)], options=dict(xatol=tol))['x'][0]
+
+    def Dt(x):
+        return np.array([ M._d(x[j,:], x[j+1,:])**2 for j in range(x.shape[0]-1) ]).mean()
+
+    mean = log_cholesky.spd_to_log_chol(np.eye(M.dim))
+
+    x = sim(T, phi, mean)
+    mu_hat = MetricData(M, x).frechet_mean()
+    
+    booted_phi = bootstrap(x, phi_hat, num_boot, boot_fraction)
+    booted_dt = bootstrap(x, Dt, num_boot, boot_fraction)
+
+    return M._d(mean, mu_hat)**2, phi_hat(x), Dt(x), booted_phi, booted_dt
 
 def iter_wasserstein(T, phi, num_boot, boot_fraction):
     W = W1d.Wasserstein1D()
@@ -108,7 +180,14 @@ boot_fraction = sim_setting["boot_fraction"]
 num_boot = int(sim_setting["num_boot"])
 
 print('running sim')
-out_fn = iter_r if setup == 'r' else iter_wasserstein
+if setup == 'r':
+    out_fn = iter_r
+elif setup == 'wasserstein':
+    out_fn = iter_wasserstein
+elif setup == 'log_cholesky':
+    out_fn = log_cholesky
+else:
+    raise Exception(f"Unknown setup: {setup}")
 
 print('saving result')
 

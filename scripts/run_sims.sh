@@ -7,6 +7,7 @@ source config.sh
 echo "loading pbs modules"
 module unload .
 module load tools
+module load gcc/12.2.0
 module load anaconda3/2023.03
 
 # Setup CFI experiment
