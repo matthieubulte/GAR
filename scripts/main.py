@@ -62,14 +62,27 @@ def bootstrap(x, stat, B, boot_fraction):
 def iter_log_cholesky(T, phi, num_boot, boot_fraction):
     M = log_cholesky.LogCholesky(10)
 
+    def log_chol_to_L(DL):
+        n = DL.shape[0]
+        d = int((-1 + np.sqrt(1 + 8 * n)) / 2)
+        L = np.zeros(shape=(d,d))
+        L[np.diag_indices(d)] = np.exp(DL[:d])
+        L[np.tril_indices(d, -1)] = DL[d:]
+        return L
+
+    def noise(x):
+        C_eps = np.zeros_like(x)
+        C_eps[:M.dim] = .2 * np.random.normal(size=M.dim)
+        C_eps[M.dim:] = .5 * np.random.normal(size=x.shape[0] - M.dim)
+        
+        L_eps = log_chol_to_L(C_eps)
+        x = log_cholesky.log_chol_to_spd(x)
+        return log_cholesky.spd_to_log_chol(L_eps.dot(x).dot(L_eps.T))
+
     def sim(T, phi, mu):
         x = np.zeros((T, mu.shape[0])) + mu
         for i in range(1,T):
-            x[i, :] = geodesic(x[i-1], phi, mu)
-            # log-normal noise on eigenvalues
-            x[i, :M.dim] *= (1 + np.random.normal(size=M.dim))
-            # normal noise on the lower-triangular elements
-            x[i, M.dim:] += np.random.normal(size=mu.shape[0] - M.dim)
+            x[i, :] = noise(geodesic(x[i-1], phi, mu))
         return x
     
     def phi_hat(x, tol=None):

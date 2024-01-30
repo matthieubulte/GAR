@@ -34,7 +34,7 @@ def plot_test_for(df, statname, onesided=False):
     plt.yticks([0.05,0.1,0.2,0.3,0.4,0.5,0.6,.7,.8,.9,1]);
 
 def plot_alpha_alpha(df, statname, samplesize, onesided=False):
-    target_sizes = np.linspace(0, 1, 40)
+    target_sizes = np.linspace(0, .1, 40)
     for phi in np.sort(df.phi.unique()):
         sub_df = df[(df['sample_size'] == samplesize) & (df['phi'] == phi)]
 
@@ -51,9 +51,11 @@ def plot_alpha_alpha(df, statname, samplesize, onesided=False):
                 emp_sizes[i] = ((sub_df[statname] < crit_lo) | (sub_df[statname] > crit_hi)).mean()
             
         label = r'$0\ (H_0)$' if phi == 0 else f'{phi:.1f}'
-        plt.scatter(target_sizes, emp_sizes, label=label, s=5)
+        # plt.scatter(target_sizes, emp_sizes, label=label, s=5)
+        plt.plot(target_sizes, emp_sizes, label=label, marker='o', markersize=3)
 
     plt.legend(title=r'$\varphi$')
     plt.xlabel('Test level')
     plt.ylabel('Rejection Rate')
+    plt.ylim(0,1)
     plt.grid('on')
