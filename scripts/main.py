@@ -20,45 +20,6 @@ def bootstrap(x, stat, B, boot_fraction):
     return bootstrap
 
 
-# def iter_bm(T, phi, num_boot, boot_fraction):
-#     def sim(T, phi, mu):
-#         x = np.zeros((T, mu.shape[0])) + mu
-#         for i in range(1,T):
-#             z = geodesic(x[i-1], phi, mu)
-#             eps = 0 # brownian motion
-#             x[i, :] = z + eps
-#         return x
-    
-#     def phi_hat(x, tol=None):
-#         mu_hat = x.mean(axis=0)
-#         T = x.shape[0]
-#         tol = tol or 1.0 / np.sqrt(T)
-#         def L(phi): return np.array([ np.linalg.norm(x[j+1,:] - geodesic(x[j,:], phi, mu_hat))**2 for j in range(T-1) ]).mean()
-#         return minimize(L, np.random.rand(), method='Nelder-Mead', bounds=[(0,1)], options=dict(xatol=tol))['x'][0]
-
-#     def Dt(x):
-#         h = 1/x.shape[0]
-#         return h*h*np.array([ np.linalg.norm(x[j,:] - x[j+1,:])**2  for j in range(x.shape[0]-1) ]).mean()
-
-#     domain = np.linspace(0, 1, 100)
-#     mean = np.sin(5 * np.pi * domain)
-
-#     x = sim(T, phi, mean)
-#     mu_hat = x.mean(axis=0)
-    
-#     booted_phi = bootstrap(x, phi_hat, num_boot, boot_fraction)
-#     booted_dt = bootstrap(x, Dt, num_boot, boot_fraction)
-
-#     D_mat = np.zeros((T,T))
-#     for i in range(T):
-#         for j in range(i+1,T):
-#             D_mat[i,j] = W._d(x[i,:], x[j,:])
-#             D_mat[j,i] = D_mat[i,j]
-#     stat_CM, booted_CM, stat_KS, booted_KS = prop_test(D_mat, B=num_boot)
-
-#     return W._d(mean, mu_hat)**2, phi_hat(x), Dt(x), stat_CM, stat_KS, booted_phi, booted_dt, booted_CM, booted_KS
-
-
 def iter_log_cholesky(T, phi, num_boot, boot_fraction):
     M = log_cholesky.LogCholesky(10)
 
@@ -88,7 +49,7 @@ def iter_log_cholesky(T, phi, num_boot, boot_fraction):
     def phi_hat(x, tol=None):
         mu_hat = MetricData(M, x).frechet_mean()
         T = x.shape[0]
-        tol = tol or 1.0 / np.sqrt(T)
+        tol = tol or min(1.0 / T, 1e-4)
         def L(phi): return np.array([ M._d(x[j+1,:], geodesic(x[j,:], phi, mu_hat))**2 for j in range(T-1) ]).mean()
         return minimize(L, np.random.rand(), method='Nelder-Mead', bounds=[(0,1)], options=dict(xatol=tol))['x'][0]
 
@@ -126,7 +87,7 @@ def iter_wasserstein(T, phi, num_boot, boot_fraction):
     def phi_hat(x, tol=None):
         mu_hat = MetricData(W, x).frechet_mean()
         T = x.shape[0]
-        tol = tol or 1.0 / np.sqrt(T)
+        tol = tol or min(1.0 / T, 1e-4)
         def L(phi): return np.array([ W._d(x[j+1,:], geodesic(x[j,:], phi, mu_hat))**2 for j in range(T-1) ]).mean()
         return minimize(L, np.random.rand(), method='Nelder-Mead', bounds=[(0,1)], options=dict(xatol=tol))['x'][0]
 
@@ -161,9 +122,9 @@ def iter_r(T, phi, num_boot, boot_fraction):
             x[i] = (1 + sig*np.random.randn()) * geodesic(x[i-1], phi, mu)
         return x
     
-    def phi_hat(x):
+    def phi_hat(x, tol=None):
         T = x.shape[0]
-        tol = 1.0 / np.sqrt(T)
+        tol = tol or min(1.0 / T, 1e-4)
         mu_hat = x.mean()
         def L(phi): return np.array([ (x[j+1] - geodesic(x[j], phi, mu_hat))**2 for j in range(T-1) ]).mean()
         return minimize(L, np.random.rand(), method='Nelder-Mead', bounds=[(0,1)], options=dict(xatol=tol))['x'][0]
